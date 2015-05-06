@@ -10,7 +10,6 @@ class Node(TCP, Emitter):
         Emitter.__init__(self)
 
         self.conns = []
-        self.clients = []
 
     def iferr(self, *args):
         err = args[-1]
@@ -26,20 +25,18 @@ class Node(TCP, Emitter):
             msg = json.loads(data)
             super(Node, self).emit(msg['name'], *msg['args'])
         except:
-            self.onconnect(handle, data, err)
+            self.handshake(handle, data, err)
 
-    def onconnect(self, handle, data, err):
+    def handshake(self, handle, data, err):
         def cb(handle, err):
             self.iferr(err)
 
             super(Node, self).emit('connect', data)
 
+        conns, clients = zip(*self.conns)
         if data.startswith('host?'):
             host, port = self.getsockname()
             handle.write('host=' + host + ':' + str(port))
-
-            if handle not in self.clients:
-                self.clients.append(handle)
 
             return
 
@@ -47,14 +44,11 @@ class Node(TCP, Emitter):
             data = tuple(data.split('=')[1].split(':'))
             data = (data[0], int(data[1]))
 
-            if data not in self.conns:
+            if data not in conns:
                 host, port = self.getsockname()
                 handle.write('host;' + host + ':' + str(port))
-                self.connect(data, cb)
-                self.conns.append(data)
 
-                if handle not in self.clients:
-                    self.clients.append(handle)
+                self.connect(data, cb)
 
             return
 
@@ -65,10 +59,13 @@ class Node(TCP, Emitter):
 
     def listen(self, backlog=511):
         def cb(server, err):
+            self.iferr(err)
+
             client = TCP(self.loop)
             self.accept(client)
 
-            client.write('host?')
+            host, port = self.getsockname()
+            client.write('host?' + host + ':' + str(port))
             client.start_read(self.ondata)
 
         super(Node, self).listen(cb, backlog)
@@ -78,13 +75,22 @@ class Node(TCP, Emitter):
         if not cb:
             cb = self.iferr
 
+        conns, clients = zip(*self.conns)
+        if args in conns:
+            return
+
         c = TCP(self.loop)
         c.connect(args, cb)
         c.start_read(self.ondata)
 
-        self.conns.append(args)
+        self.conns.append((args, c))
 
-    def emit(self, event, *args):
+    def emit(self, event, *args, **kwargs):
         msg = json.dumps({'name': event, 'args': args})
-        for c in self.clients:
-            c.write(msg)
+
+        for conn, client in self.conns:
+            if not conn or not client:
+                continue
+
+            if conn == kwargs.get('to') or not kwargs.get('to'):
+                client.write(msg)
