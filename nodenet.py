@@ -1,7 +1,7 @@
 
 import json
 import signal
-from pyuv import Loop, TCP, Signal
+from pyuv import Loop, UDP, Signal
 from emitter import Emitter
 
 
@@ -9,9 +9,9 @@ def node():
     return Node(Loop.default_loop())
 
 
-class Node(TCP, Emitter):
+class Node(UDP, Emitter):
     def __init__(self, loop):
-        TCP.__init__(self, loop)
+        UDP.__init__(self, loop)
         Emitter.__init__(self)
 
         self._sigint_h = Signal(self.loop)
@@ -27,7 +27,7 @@ class Node(TCP, Emitter):
         if err:
             super(Node, self).emit('error', err)
 
-    def _ondata(self, handle, data, err):
+    def _on_data(self, handle, who, flags, data, err):
         if data is None:
             return
 
@@ -38,94 +38,50 @@ class Node(TCP, Emitter):
             msg = json.loads(data)
             super(Node, self).emit(msg['name'], *msg['args'])
         except:
-            self._handshake(handle, data, err)
+            if data.startswith('connect;'):
+                data = tuple(data.split(';')[1].split(':'))
+                data = (data[0], int(data[1]))
+                if data not in self._conns:
+                    self._conns.append(data)
+                    super(Node, self).emit('connect', data)
 
-    def _handshake(self, handle, data, err):
-        def cb(handle, err):
-            self._iferr(err)
+                return
 
-            super(Node, self).emit('connect', data)
-
-        conns, clients = zip(*(self._conns or [(None, None)]))
-        if data.startswith('host?'):
-            host, port = self.getsockname()
-            handle.write('host=' + host + ':' + str(port))
-
-            return
-
-        if data.startswith('host='):
-            data = tuple(data.split('=')[1].split(':'))
-            data = (data[0], int(data[1]))
-
-            if data not in conns:
-                host, port = self.getsockname()
-                handle.write(';' + host + ':' + str(port))
-
-                self.connect(data, cb)
-
-            return
-
-        if data[0] == ';':
-            data = data[1:].split(':')
-            data = (data[0], int(data[1]))
-            super(Node, self).emit('connect', data)
-
-            return
-
-        if data.startswith('close;'):
-            data = tuple(data.split(';')[1].split(':'))
-            data = (data[0], int(data[1]))
-            [c.close() for conn, c in self._conns if conn == data]
-            self._conns = [c for c in self._conns if not conn == data]
+            if data.startswith('close;'):
+                super(Node, self).emit('disconnect', who)
+                self._conns.remove(who)
 
     def close(self, *args):
         super(Node, self).emit('close', args[-1])
 
-        conns, clients = zip(*(self._conns or [(None, None)]))
-        clients = [c for c in clients if c]
-        host, port = self.getsockname()
+        [self.send(conn, 'close;', self._iferr) for conn in self._conns]
 
-        [c.write('close;' + host + ':' + str(port)) for c in clients]
-        [c.close() for c in clients if c]
-
+        self.stop_recv()
         self._sigint_h.close()
         self._sigterm_h.close()
         super(Node, self).close()
 
-    def listen(self, args, backlog=511):
-        def cb(server, err):
+    def bind(self, where):
+        super(Node, self).bind((where))
+        self.start_recv(self._on_data)
+        super(Node, self).emit('bind', self.getsockname())
+
+    def connect(self, who, cb=None):
+        def cb(handle, err):
             self._iferr(err)
+            super(Node, self).emit('connect', who)
 
-            client = TCP(self.loop)
-            self.accept(client)
-
-            client.write('host?')
-            client.start_read(self._ondata)
-
-        super(Node, self).bind((args))
-        super(Node, self).listen(cb, backlog)
-        super(Node, self).emit('listening', self.getsockname())
-
-    def connect(self, args, cb=None):
-        if not cb:
-            cb = self._iferr
-
-        conns, clients = zip(*(self._conns or [(None, None)]))
-        if args in conns:
+        if who in self._conns:
             return
 
-        c = TCP(self.loop)
-        c.connect(args, cb)
-        c.start_read(self._ondata)
+        self._conns.append(who)
 
-        self._conns.append((args, c))
+        host, port = self.getsockname()
+        super(Node, self).send(who, 'connect;' + host + ':' + str(port), cb)
 
     def emit(self, event, *args, **kwargs):
         msg = json.dumps({'name': event, 'args': args})
 
-        for conn, client in self._conns:
-            if not conn or not client:
-                continue
-
-            if conn == kwargs.get('to') or not kwargs.get('to'):
-                client.write(msg)
+        for conn in self._conns:
+            if kwargs.get('to') == conn or not kwargs.get('to'):
+                self.send(conn, msg, self._iferr)
