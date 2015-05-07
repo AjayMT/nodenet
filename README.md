@@ -1,9 +1,11 @@
 
 # nodenet
 nodenet is an
+
 - asynchronous
 - event-driven
 - node-based
+
 networking library for python (with a [nice API](http://github.com/ajaymt/nodenet/blob/master/example.py)).
 
 **This is still a work in progress. Read the TODO section.**

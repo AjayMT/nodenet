@@ -20,7 +20,7 @@ n2.connect(('127.0.0.1', 3000))
 
 
 def on_hello(data):
-    print (data)
+    print(data)
     n1.emit('foo', 'bar')
 
 # set up event handlers
