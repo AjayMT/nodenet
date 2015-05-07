@@ -65,7 +65,7 @@ class Node(UDP, Emitter):
         self.start_recv(self._on_data)
         super(Node, self).emit('bind', self.getsockname())
 
-    def connect(self, who, cb=None):
+    def connect(self, who):
         def cb(handle, err):
             self._iferr(err)
             super(Node, self).emit('connect', who)
