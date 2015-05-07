@@ -1,6 +1,7 @@
 
 import json
-from pyuv import Loop, TCP
+import signal
+from pyuv import Loop, TCP, Signal
 from emitter import Emitter
 
 
@@ -8,6 +9,11 @@ class Node(TCP, Emitter):
     def __init__(self, loop):
         TCP.__init__(self, loop)
         Emitter.__init__(self)
+
+        self._sigint_h = Signal(self.loop)
+        self._sigterm_h = Signal(self.loop)
+        self._sigint_h.start(self.close, signal.SIGINT)
+        self._sigterm_h.start(self.close, signal.SIGTERM)
 
         self._conns = []
 
@@ -18,6 +24,9 @@ class Node(TCP, Emitter):
             super(Node, self).emit('error', err)
 
     def _ondata(self, handle, data, err):
+        if data is None:
+            return
+
         self._iferr(err)
 
         data = str(data)
@@ -56,6 +65,28 @@ class Node(TCP, Emitter):
             data = data[1:].split(':')
             data = (data[0], int(data[1]))
             super(Node, self).emit('connect', data)
+
+            return
+
+        if data.startswith('close;'):
+            data = tuple(data.split(';')[1].split(':'))
+            data = (data[0], int(data[1]))
+            [c.close() for conn, c in self._conns if conn == data]
+            self._conns = [c for c in self._conns if not conn == data]
+
+    def close(self, *args):
+        super(Node, self).emit('close', args[-1])
+
+        conns, clients = zip(*(self._conns or [(None, None)]))
+        clients = [c for c in clients if c]
+        host, port = self.getsockname()
+
+        [c.write('close;' + host + ':' + str(port)) for c in clients]
+        [c.close() for c in clients if c]
+
+        self._sigint_h.close()
+        self._sigterm_h.close()
+        super(Node, self).close()
 
     def listen(self, args, backlog=511):
         def cb(server, err):
