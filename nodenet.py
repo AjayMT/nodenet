@@ -5,6 +5,10 @@ from pyuv import Loop, TCP, Signal
 from emitter import Emitter
 
 
+def node():
+    return Node(Loop.default_loop())
+
+
 class Node(TCP, Emitter):
     def __init__(self, loop):
         TCP.__init__(self, loop)
