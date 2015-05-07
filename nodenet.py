@@ -23,7 +23,6 @@ class Node(UDP, Emitter):
 
     def _iferr(self, *args):
         err = args[-1]
-
         if err:
             super(Node, self).emit('error', err)
 
@@ -33,7 +32,7 @@ class Node(UDP, Emitter):
 
         self._iferr(err)
 
-        data = str(data)
+        data = str(data).encode('utf-8')
         try:
             msg = json.loads(data)
             super(Node, self).emit(msg['name'], *msg['args'])
