@@ -1,22 +1,18 @@
 
 from __future__ import print_function
-from nodenet import Node
-from pyuv import Loop
-
-# make an event loop
-loop = Loop.default_loop()
+import nodenet
 
 # make two nodes
-n1 = Node(loop)
-n2 = Node(loop)
+n1 = nodenet.node()
+n2 = nodenet.node()
 
 # bind nodes to ports
-n1.bind(('127.0.0.1', 3000))
-n2.bind(('127.0.0.1', 3001))
+n1.bind('127.0.0.1', 3000)
+n2.bind('127.0.0.1', 3001)
 
 # connect nodes to each other
-n1.connect(('127.0.0.1', 3001))
-n2.connect(('127.0.0.1', 3000))
+n1.connect('127.0.0.1', 3001)
+n2.connect('127.0.0.1', 3000)
 
 
 def on_hello(data):
@@ -31,7 +27,7 @@ n2.on('foo', print)
 n2.emit('hello', {'hello': 'world'})
 
 # start the event loop
-loop.run()
+nodenet.loop.run()
 
 # output:
 # {u'hello': u'world'}

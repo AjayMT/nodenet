@@ -5,8 +5,11 @@ from pyuv import Loop, UDP, Signal
 from emitter import Emitter
 
 
+loop = Loop.default_loop()
+
+
 def node():
-    return Node(Loop.default_loop())
+    return Node(loop)
 
 
 class Node(UDP, Emitter):
@@ -60,12 +63,12 @@ class Node(UDP, Emitter):
         self._sigterm_h.close()
         super(Node, self).close()
 
-    def bind(self, where):
-        super(Node, self).bind((where))
+    def bind(self, *where):
+        super(Node, self).bind(where)
         self.start_recv(self._on_data)
         super(Node, self).emit('bind', self.getsockname())
 
-    def connect(self, who):
+    def connect(self, *who):
         def cb(handle, err):
             self._iferr(err)
             super(Node, self).emit('connect', who)
