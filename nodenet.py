@@ -46,28 +46,28 @@ class Node(TCP, Emitter):
 
             if data not in conns:
                 host, port = self.getsockname()
-                handle.write('host;' + host + ':' + str(port))
+                handle.write(';' + host + ':' + str(port))
 
                 self.connect(data, cb)
 
             return
 
-        if data.startswith('host;'):
-            data = data.split(';')[1].split(':')
+        if data[0] == ';':
+            data = data[1:].split(':')
             data = (data[0], int(data[1]))
             super(Node, self).emit('connect', data)
 
-    def listen(self, backlog=511):
+    def listen(self, args, backlog=511):
         def cb(server, err):
             self._iferr(err)
 
             client = TCP(self.loop)
             self.accept(client)
 
-            host, port = self.getsockname()
-            client.write('host?' + host + ':' + str(port))
+            client.write('host?')
             client.start_read(self._ondata)
 
+        super(Node, self).bind((args))
         super(Node, self).listen(cb, backlog)
         super(Node, self).emit('listening', self.getsockname())
 
