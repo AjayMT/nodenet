@@ -1,39 +1,38 @@
 
 import json
 import signal
-from pyuv import Loop, UDP, Signal
+import pyuv as uv
 from emitter import Emitter
 
-
-loop = Loop.default_loop()
+loop = uv.Loop.default_loop()
 
 
 def node():
     return Node(loop)
 
 
-class Node(UDP, Emitter):
+class Node(uv.UDP, Emitter):
     def __init__(self, loop):
-        UDP.__init__(self, loop)
+        uv.UDP.__init__(self, loop)
         Emitter.__init__(self)
 
-        self._sigint_h = Signal(self.loop)
-        self._sigterm_h = Signal(self.loop)
+        self._sigint_h = uv.Signal(self.loop)
+        self._sigterm_h = uv.Signal(self.loop)
         self._sigint_h.start(self.close, signal.SIGINT)
         self._sigterm_h.start(self.close, signal.SIGTERM)
 
         self._conns = []
 
-    def _iferr(self, *args):
+    def _check_err(self, *args):
         err = args[-1]
         if err:
-            super(Node, self).emit('error', err)
+            super(Node, self).emit('error', err, uv.errno.strerror(err))
 
     def _on_data(self, handle, who, flags, data, err):
         if data is None:
             return
 
-        self._iferr(err)
+        self._check_err(err)
 
         data = str(data).encode('utf-8')
         try:
@@ -56,7 +55,7 @@ class Node(UDP, Emitter):
     def close(self, *args):
         super(Node, self).emit('close', args[-1])
 
-        [self.send(conn, 'close;', self._iferr) for conn in self._conns]
+        [self.send(conn, 'close;', self._check_err) for conn in self._conns]
 
         self.stop_recv()
         self._sigint_h.close()
@@ -70,7 +69,7 @@ class Node(UDP, Emitter):
 
     def connect(self, *who):
         def cb(handle, err):
-            self._iferr(err)
+            self._check_err(err)
             super(Node, self).emit('connect', who)
 
         if who in self._conns:
@@ -86,4 +85,4 @@ class Node(UDP, Emitter):
 
         for conn in self._conns:
             if kwargs.get('to') == conn or not kwargs.get('to'):
-                self.send(conn, msg, self._iferr)
+                self.send(conn, msg, self._check_err)
