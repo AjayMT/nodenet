@@ -33,7 +33,7 @@ class Node(TCP, Emitter):
 
             super(Node, self).emit('connect', data)
 
-        conns, clients = zip(*self.conns)
+        conns, clients = zip(*(self.conns or [(None, None)]))
         if data.startswith('host?'):
             host, port = self.getsockname()
             handle.write('host=' + host + ':' + str(port))
@@ -75,7 +75,7 @@ class Node(TCP, Emitter):
         if not cb:
             cb = self.iferr
 
-        conns, clients = zip(*self.conns)
+        conns, clients = zip(*(self.conns or [(None, None)]))
         if args in conns:
             return
 
