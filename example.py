@@ -15,8 +15,8 @@ n1.connect('127.0.0.1', 3001)
 n2.connect('127.0.0.1', 3000)
 
 
-def on_hello(data):
-    print(data)
+def on_hello(who, data):
+    print(str(who) + ': ' + str(data))
     n1.emit('foo', 'bar')
 
 # set up event handlers
@@ -30,5 +30,5 @@ n2.emit('hello', {'hello': 'world'})
 nodenet.loop.run()
 
 # output:
-# {u'hello': u'world'}
-# bar
+# ('127.0.0.1', 3001): {u'hello': u'world'}
+# ('127.0.0.1', 3000) bar

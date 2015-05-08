@@ -44,6 +44,7 @@ class Node(uv.UDP, Emitter):
         try:
             msg = json.loads(data)
             super(Node, self).emit(msg['name'], who, *msg['args'])
+
         except:
             if data.startswith('connect;'):
                 data = tuple(data.split(';')[1].split(':'))
