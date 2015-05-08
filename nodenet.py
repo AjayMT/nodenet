@@ -43,7 +43,7 @@ class Node(uv.UDP, Emitter):
         data = str(data).encode('utf-8')
         try:
             msg = json.loads(data)
-            super(Node, self).emit(msg['name'], *msg['args'])
+            super(Node, self).emit(msg['name'], who, *msg['args'])
         except:
             if data.startswith('connect;'):
                 data = tuple(data.split(';')[1].split(':'))
