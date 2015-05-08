@@ -8,11 +8,17 @@ loop = uv.Loop.default_loop()
 
 
 def node():
+    """Returns a node initialised with the default event loop (nodenet.loop)"""
     return Node(loop)
 
 
 class Node(uv.UDP, Emitter):
     def __init__(self, loop):
+        """A nodenet node.
+
+        Arguments:
+        loop -- a pyuv event loop to run on
+        """
         uv.UDP.__init__(self, loop)
         Emitter.__init__(self)
 
@@ -53,6 +59,12 @@ class Node(uv.UDP, Emitter):
                 self._conns.remove(who)
 
     def close(self, *args):
+        """Close the node.
+
+        Arguments:
+        signum -- an optional signal number that is passed to listeners for
+          the 'close' event
+        """
         super(Node, self).emit('close', args[-1])
 
         [self.send(conn, 'close;', self._check_err) for conn in self._conns]
@@ -63,11 +75,27 @@ class Node(uv.UDP, Emitter):
         super(Node, self).close()
 
     def bind(self, *where):
+        """Bind to a port.
+
+        Arguments:
+        host -- IP address of host
+        port -- port number
+        flowinfo -- optional flow info, only for IPv6. Defaults to 0.
+        scope_id -- optional scope ID, only for IPv6. Defaults to 0.
+        """
         super(Node, self).bind(where)
         self.start_recv(self._on_data)
         super(Node, self).emit('bind', self.getsockname())
 
     def connect(self, *who):
+        """Connect to a node.
+
+        Arguments:
+        ip -- IP address of node
+        port -- port number of node
+        flowinfo -- optional flow info, only for IPv6. Defaults to 0.
+        scope_id -- optional scope ID, only for IPv6. Defaults to 0.
+        """
         def cb(handle, err):
             self._check_err(err)
             super(Node, self).emit('connect', who)
@@ -81,8 +109,20 @@ class Node(uv.UDP, Emitter):
         super(Node, self).send(who, 'connect;' + host + ':' + str(port), cb)
 
     def emit(self, event, *args, **kwargs):
+        """Emit an event.
+
+        Arguments:
+        event -- event name
+        *args -- arguments to pass to event listeners
+        to=None -- optional keyword argument, a list of specific nodes to
+          emit the event to. Each element in the list is a tuple like the one
+          passed to Node#connect. If this is None, the event is broadcast to
+          all connected nodes. Defaults to None.
+        """
         msg = json.dumps({'name': event, 'args': args})
+        if not kwargs.get('to'):
+            kwargs['to'] = self._conns
 
         for conn in self._conns:
-            if kwargs.get('to') == conn or not kwargs.get('to'):
+            if conn in kwargs['to']:
                 self.send(conn, msg, self._check_err)
