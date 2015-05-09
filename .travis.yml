@@ -5,4 +5,5 @@ python:
 install:
   - pip install pyvows
   - pip install pyuv
+  - pip install emitter
 script: bash ./test
