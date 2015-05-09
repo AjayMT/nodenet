@@ -1,5 +1,7 @@
 
 # nodenet
+[![Build Status](https://travis-ci.org/AjayMT/nodenet.svg)](https://travis-ci.org/AjayMT/nodenet)
+
 nodenet is an asynchronous, event-driven, node-based UDP networking library for python.
 
 **This is still a work in progress. Read the TODO section.**
