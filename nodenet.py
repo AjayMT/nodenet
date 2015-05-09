@@ -22,6 +22,8 @@ class Node(uv.UDP, Emitter):
         uv.UDP.__init__(self, loop)
         Emitter.__init__(self)
 
+        self.sockname = (None, None)
+
         self._sigint_h = uv.Signal(self.loop)
         self._sigterm_h = uv.Signal(self.loop)
         self._sigint_h.start(self.close, signal.SIGINT)
@@ -50,8 +52,19 @@ class Node(uv.UDP, Emitter):
                 data = tuple(data.split(';')[1].split(':'))
                 data = (data[0], int(data[1]))
                 if data not in self._conns:
+                    host, port = self.sockname
                     self._conns.append(data)
+                    self.send(data, 'connected;' + host + ':' + str(port),
+                              self._check_err)
                     super(Node, self).emit('connect', data)
+
+                return
+
+            if data.startswith('connected;'):
+                data = tuple(data.split(';')[1].split(':'))
+                data = (data[0], int(data[1]))
+                self._conns.append(data)
+                super(Node, self).emit('connect', data)
 
                 return
 
@@ -84,9 +97,10 @@ class Node(uv.UDP, Emitter):
         flowinfo -- optional flow info, only for IPv6. Defaults to 0.
         scope_id -- optional scope ID, only for IPv6. Defaults to 0.
         """
-        super(Node, self).bind(where)
+        self.sockname = where
+        super(Node, self).bind(self.sockname)
         self.start_recv(self._on_data)
-        super(Node, self).emit('bind', self.getsockname())
+        super(Node, self).emit('bind', self.sockname)
 
     def connect(self, *who):
         """Connect to a node.
@@ -97,17 +111,11 @@ class Node(uv.UDP, Emitter):
         flowinfo -- optional flow info, only for IPv6. Defaults to 0.
         scope_id -- optional scope ID, only for IPv6. Defaults to 0.
         """
-        def cb(handle, err):
-            self._check_err(err)
-            super(Node, self).emit('connect', who)
-
         if who in self._conns:
             return
 
-        self._conns.append(who)
-
-        host, port = self.getsockname()
-        super(Node, self).send(who, 'connect;' + host + ':' + str(port), cb)
+        host, port = self.sockname
+        self.send(who, 'connect;' + host + ':' + str(port), self._check_err)
 
     def emit(self, event, *args, **kwargs):
         """Emit an event.
