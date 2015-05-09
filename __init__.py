@@ -106,11 +106,18 @@ class Node(uv.UDP, Emitter):
         """Connect to a node.
 
         Arguments:
-        ip -- IP address of node
-        port -- port number of node
-        flowinfo -- optional flow info, only for IPv6. Defaults to 0.
-        scope_id -- optional scope ID, only for IPv6. Defaults to 0.
+        node -- another instance of `Node` to connect to. Mutually exclusive of
+          all other arguments.
+        ip -- IP address of node. Mutually exclusive of `node`.
+        port -- port number of node. Mutually exclusive of `node`.
+        flowinfo -- optional flow info, only for IPv6. Defaults to 0. Mutually
+          exclusive of `node`.
+        scope_id -- optional scope ID, only for IPv6. Defaults to 0. Mutually
+          exclusive of `node`.
         """
+        if type(who[0]) is Node:
+            who = who[0].sockname
+
         if who in self._conns:
             return
 
@@ -128,10 +135,12 @@ class Node(uv.UDP, Emitter):
           passed to Node#connect. If this is None, the event is broadcast to
           all connected nodes. Defaults to None.
         """
-        msg = json.dumps({'name': event, 'args': args})
         if not kwargs.get('to'):
             kwargs['to'] = self._conns
 
-        for conn in self._conns:
-            if conn in kwargs['to']:
-                self.send(conn, msg, self._check_err)
+        kwargs['to'] = [n.sockname if type(n) is Node else n
+                        for n in kwargs['to']]
+
+        msg = json.dumps({'name': event, 'args': args})
+        for conn in kwargs['to']:
+            self.send(conn, msg, self._check_err)

@@ -1,5 +1,12 @@
 
 from __future__ import print_function
+
+import sys
+from os import path
+
+# weird hack to be able to import nodenet normally
+sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+
 import nodenet
 
 # make two nodes
@@ -25,7 +32,8 @@ n2.on('foo', print)
 n2.on('connect', on_connect)
 
 # connect nodes to each other
-n2.connect('127.0.0.1', 3000)
+# every connection is two-way, so only one node has to (and should) connect
+n2.connect(n1)
 
 # start the event loop
 nodenet.loop.run()
