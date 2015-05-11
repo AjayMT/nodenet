@@ -1,12 +1,7 @@
 
 from __future__ import print_function
-
-import sys
 from os import path
-
-# weird hack to be able to import nodenet normally
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
+import sys
 import nodenet
 
 # make two nodes
