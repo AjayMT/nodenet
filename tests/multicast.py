@@ -33,7 +33,7 @@ def test(*args):
             n1.close(None)
             n2.close(None)
             n3.close(None)
-            exit(1)
+            sys.exit(1)
 
     n2.on('data', on_data)
     n3.on('data', on_data)
