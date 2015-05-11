@@ -29,7 +29,7 @@ class Node(uv.UDP, Emitter):
         self._sigint_h.start(self.close, signal.SIGINT)
         self._sigterm_h.start(self.close, signal.SIGTERM)
 
-        self._conns = []
+        self.peers = []
 
     def _check_err(self, *args):
         err = args[-1]
@@ -51,9 +51,9 @@ class Node(uv.UDP, Emitter):
             if data.startswith('connect;'):
                 data = tuple(data.split(';')[1].split(':'))
                 data = (data[0], int(data[1]))
-                if data not in self._conns:
+                if data not in self.peers:
                     host, port = self.sockname
-                    self._conns.append(data)
+                    self.peers.append(data)
                     self.send(data, 'connected;' + host + ':' + str(port),
                               self._check_err)
                     super(Node, self).emit('connect', data)
@@ -63,14 +63,14 @@ class Node(uv.UDP, Emitter):
             if data.startswith('connected;'):
                 data = tuple(data.split(';')[1].split(':'))
                 data = (data[0], int(data[1]))
-                self._conns.append(data)
+                self.peers.append(data)
                 super(Node, self).emit('connect', data)
 
                 return
 
             if data.startswith('close;'):
                 super(Node, self).emit('disconnect', who)
-                self._conns.remove(who)
+                self.peers.remove(who)
 
     def close(self, *args):
         """Close the node.
@@ -81,7 +81,7 @@ class Node(uv.UDP, Emitter):
         """
         super(Node, self).emit('close', args[-1])
 
-        [self.send(conn, 'close;', self._check_err) for conn in self._conns]
+        [self.send(conn, 'close;', self._check_err) for conn in self.peers]
 
         self.stop_recv()
         self._sigint_h.close()
@@ -118,7 +118,7 @@ class Node(uv.UDP, Emitter):
         if type(who[0]) is Node:
             who = who[0].sockname
 
-        if who in self._conns:
+        if who in self.peers:
             return
 
         host, port = self.sockname
@@ -136,7 +136,7 @@ class Node(uv.UDP, Emitter):
           all connected nodes. Defaults to None.
         """
         if not kwargs.get('to'):
-            kwargs['to'] = self._conns
+            kwargs['to'] = self.peers
 
         kwargs['to'] = [n.sockname if type(n) is Node else n
                         for n in kwargs['to']]
