@@ -21,9 +21,14 @@ $ git clone http://github.com/AjayMT/nodenet.git && cd nodenet
 $ python setup.py install
 ```
 
+## Running tests
+```sh
+$ ./test
+```
+
 ## TODO
 - lots of docs
-- lots of tests
+- better tests
 
 ## License
 MIT License. See `./LICENSE` for details.
