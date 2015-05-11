@@ -79,6 +79,9 @@ class Node(uv.UDP, Emitter):
         signum -- an optional signal number that is passed to listeners for
           the 'close' event
         """
+        if not len(args):
+            args = [None]
+
         super(Node, self).emit('close', args[-1])
 
         [self.send(conn, 'close;', self._check_err) for conn in self.peers]
@@ -132,14 +135,15 @@ class Node(uv.UDP, Emitter):
         *args -- arguments to pass to event listeners
         to=None -- optional keyword argument, a list of specific nodes to
           emit the event to. Each element in the list is a tuple like the one
-          passed to Node#connect. If this is None, the event is broadcast to
-          all connected nodes. Defaults to None.
+          passed to Node#connect, or an instance of Node. If this is None, the
+          event is broadcast to all connected nodes. Defaults to None.
         """
         if not kwargs.get('to'):
             kwargs['to'] = self.peers
 
         kwargs['to'] = [n.sockname if type(n) is Node else n
                         for n in kwargs['to']]
+        kwargs['to'] = [n for n in kwargs['to'] if n in self.peers]
 
         msg = json.dumps({'name': event, 'args': args})
         for conn in kwargs['to']:
