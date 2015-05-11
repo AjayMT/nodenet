@@ -138,7 +138,7 @@ class Node(uv.UDP, Emitter):
           passed to Node#connect, or an instance of Node. If this is None, the
           event is broadcast to all connected nodes. Defaults to None.
         """
-        if not kwargs.get('to'):
+        if kwargs.get('to') is None:
             kwargs['to'] = self.peers
 
         kwargs['to'] = [n.sockname if type(n) is Node else n
