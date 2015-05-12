@@ -37,7 +37,7 @@ def test(*args):
     n2.on('data', on_data)
     n3.on('data', on_data)
 
-    print 'testing broadcast...'
+    print '\ntesting broadcast...'
     n1.emit('data', 'test')
 
 n3.on('connect', test)

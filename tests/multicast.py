@@ -38,7 +38,7 @@ def test(*args):
     n2.on('data', on_data)
     n3.on('data', on_data)
 
-    print 'testing multicast...'
+    print '\ntesting multicast...'
     n1.emit('data', 'test', to=[n2])
 
 n3.on('connect', test)
