@@ -23,18 +23,22 @@ class Node(uv.UDP, Emitter):
         Emitter.__init__(self)
 
         self.sockname = (None, None)
+        self.peers = []
+
+        self.on('disconnect', self._on_disconnect)
 
         self._sigint_h = uv.Signal(self.loop)
         self._sigterm_h = uv.Signal(self.loop)
         self._sigint_h.start(self.close, signal.SIGINT)
         self._sigterm_h.start(self.close, signal.SIGTERM)
 
-        self.peers = []
-
     def _check_err(self, *args):
         err = args[-1]
         if err:
             super(Node, self).emit('error', err, uv.errno.strerror(err))
+
+    def _on_disconnect(self, who):
+        self.peers.remove(who)
 
     def _on_data(self, handle, who, flags, data, err):
         if data is None:
@@ -68,10 +72,6 @@ class Node(uv.UDP, Emitter):
 
                 return
 
-            if data.startswith('close;'):
-                super(Node, self).emit('disconnect', who)
-                self.peers.remove(who)
-
     def close(self, *args):
         """Close the node.
 
@@ -84,7 +84,7 @@ class Node(uv.UDP, Emitter):
 
         super(Node, self).emit('close', args[-1])
 
-        [self.send(conn, 'close;', self._check_err) for conn in self.peers]
+        self.emit('disconnect')
 
         self.stop_recv()
         self._sigint_h.close()
