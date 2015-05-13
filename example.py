@@ -5,8 +5,8 @@ import sys
 import nodenet
 
 # make two nodes
-n1 = nodenet.node()
-n2 = nodenet.node()
+n1 = nodenet.Node()
+n2 = nodenet.Node()
 
 # bind nodes to ports
 n1.bind('127.0.0.1', 3000)

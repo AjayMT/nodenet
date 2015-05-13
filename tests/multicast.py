@@ -10,9 +10,9 @@ sys.path.append(
 import nodenet
 from pyvows import expect
 
-n1 = nodenet.node()
-n2 = nodenet.node()
-n3 = nodenet.node()
+n1 = nodenet.Node()
+n2 = nodenet.Node()
+n3 = nodenet.Node()
 
 n1.bind('127.0.0.1', 3000)
 n2.bind('127.0.0.1', 3001)

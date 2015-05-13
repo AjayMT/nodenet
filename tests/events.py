@@ -12,8 +12,8 @@ from pyvows import expect
 
 print '\ntesting events...'
 
-n1 = nodenet.node()
-n2 = nodenet.node()
+n1 = nodenet.Node()
+n2 = nodenet.Node()
 
 
 def passevent(events, name, index, value):

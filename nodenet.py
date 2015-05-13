@@ -23,11 +23,6 @@ def _nest_cbs(times, fn, args, step, final):
     fn(*(args + [cb]))
 
 
-def node():
-    """Returns a node initialised with the default event loop (nodenet.loop)"""
-    return Node(loop)
-
-
 class Node(uv.UDP, Emitter):
     def __init__(self, loop=loop):
         """A nodenet node.
