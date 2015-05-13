@@ -52,7 +52,10 @@ n1.on('connect', lambda x: n1.close(-2))
 n1.on('close', lambda x: passevent(events, 'close/disconnect', 0, x))
 n2.on('disconnect', lambda x: passevent(events, 'close/disconnect', 1, x))
 
+n1.on('close', lambda x: n1.emit('closing'))
+
 n2.on('disconnect', lambda x: runtest(events, n1, n2))
+n2.on('close', lambda x: runtest(events, n1, n2))
 
 n1.bind('127.0.0.1', 3000)
 n2.bind('127.0.0.1', 3001)
