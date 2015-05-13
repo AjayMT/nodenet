@@ -11,6 +11,9 @@ nodenet is an asynchronous, event-driven, node-based UDP networking library for 
 
 nodenet is centered around **nodes** rather than clients and servers. Each node is bound to a port and can connect to an arbitrary number of other nodes, and all of them can exchange messages in the form of 'events'. All that a node *actually* is is an extension of [pyuv's UDP handler](http://pyuv.readthedocs.org/en/latest/udp.html).
 
+## Docs
+Just dosctrings for now. I'm still working on the [wiki](http://github.com/AjayMT/nodenet/wiki).
+
 ## Installation
 ```sh
 $ easy_install nodenet
