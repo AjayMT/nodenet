@@ -82,8 +82,8 @@ class Node(uv.UDP, Emitter):
         if not len(args):
             args = [None]
 
-        self.emit('disconnect')
         super(Node, self).emit('close', args[-1])
+        self.emit('disconnect')
 
         self.stop_recv()
         self._sigint_h.close()

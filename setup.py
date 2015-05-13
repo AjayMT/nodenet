@@ -4,12 +4,12 @@ from setuptools import setup
 
 setup(
     name='nodenet',
-    version='0.0.5',
+    version='0.0.6',
     description='an asynchronous node-based UDP networking library',
     author='Ajay MT',
     author_email='ajaymt@icloud.com',
     url='http://github.com/AjayMT/nodenet',
-    download_url='https://github.com/AjayMT/nodenet/tarball/v0.0.5',
+    download_url='https://github.com/AjayMT/nodenet/tarball/v0.0.6',
     keywords='node network UDP asynchronous',
     py_modules=['nodenet'],
     requires=[
