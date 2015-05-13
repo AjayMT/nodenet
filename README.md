@@ -29,6 +29,7 @@ $ ./test
 ## TODO
 - lots of docs
 - better tests
+- python 3 support, maybe use [asyncio](https://docs.python.org/dev/library/asyncio.html) instead of pyuv
 
 ## License
 MIT License. See `./LICENSE` for details.
