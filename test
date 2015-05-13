@@ -1,16 +1,14 @@
 
 #!/usr/bin/env bash
 
-code=0
-
 for file in ./tests/*.py
 do
     timeout 1s python $file
 
     if [ $? -ne 124 ]
     then
-        code=1
+        exit 1
     fi
 done
 
-exit $code
+exit 0
