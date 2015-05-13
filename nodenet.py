@@ -7,13 +7,29 @@ from emitter import Emitter
 loop = uv.Loop.default_loop()
 
 
+def _nest_cbs(times, fn, args, step, final):
+    if not times:
+        return
+
+    args = list(args)
+
+    def cb(*a):
+        step(*a)
+        _nest_cbs(times - 1, fn, args, step, final)
+
+    if times == 1:
+        cb = final
+
+    fn(*(args + [cb]))
+
+
 def node():
     """Returns a node initialised with the default event loop (nodenet.loop)"""
     return Node(loop)
 
 
 class Node(uv.UDP, Emitter):
-    def __init__(self, loop):
+    def __init__(self, loop=loop):
         """A nodenet node.
 
         Arguments:
@@ -79,16 +95,21 @@ class Node(uv.UDP, Emitter):
         signum -- an optional signal number that is passed to listeners for
           the 'close' event
         """
+        def cb(h, e):
+            if self.closed:
+                return
+
+            self._check_err(e)
+            super(Node, self).emit('close', args[-1])
+            self.stop_recv()
+            self._sigint_h.close()
+            self._sigterm_h.close()
+            super(Node, self).close()
+
         if not len(args):
             args = [None]
 
-        super(Node, self).emit('close', args[-1])
-        self.emit('disconnect')
-
-        self.stop_recv()
-        self._sigint_h.close()
-        self._sigterm_h.close()
-        super(Node, self).close()
+        self.emit('disconnect', cb=cb)
 
     def bind(self, *where):
         """Bind to a port.
@@ -136,7 +157,21 @@ class Node(uv.UDP, Emitter):
           emit the event to. Each element in the list is a tuple like the one
           passed to Node#connect, or an instance of Node. If this is None, the
           event is broadcast to all connected nodes. Defaults to None.
+        cb=None -- optional keyword argument, a callback to call after the
+          event has been emitted. Called with two arguments: the Node instance
+          that emitted the event, and an error object. If this is None, the
+          error is handled by emitting an 'error' event if necessary. Defaults
+          to None.
         """
+        i = []
+
+        def cb(i, err):
+            self._check_err(err)
+            i.append(None)
+
+        if 'cb' not in kwargs:
+            kwargs['cb'] = self._check_err
+
         if 'to' not in kwargs:
             kwargs['to'] = self.peers
 
@@ -145,5 +180,12 @@ class Node(uv.UDP, Emitter):
         kwargs['to'] = [n for n in kwargs['to'] if n in self.peers]
 
         msg = json.dumps({'name': event, 'args': args})
-        for conn in kwargs['to']:
-            self.send(conn, msg, self._check_err)
+
+        # TODO get rid of weird kwargs['to'][len(i)] hack
+        if len(kwargs['to']):
+            _nest_cbs(len(kwargs['to']), self.send,
+                      [kwargs['to'][len(i)], msg],
+                      lambda h, x: cb(i, x), kwargs['cb'])
+
+        else:
+            kwargs['cb'](None, None)
