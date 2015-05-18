@@ -12,7 +12,11 @@ nodenet is an asynchronous, event-driven, node-based UDP networking library for 
 nodenet is centered around **nodes** rather than clients and servers. Each node is bound to a port and can connect to an arbitrary number of other nodes, and all of them can exchange messages in the form of 'events'. All that a node *actually* is is an extension of [pyuv's UDP handler](http://pyuv.readthedocs.org/en/latest/udp.html).
 
 ## Docs
-Just dosctrings for now. I'm still working on the [wiki](http://github.com/AjayMT/nodenet/wiki).
+### API
+Read the dosctrings (`help(nodenet)`).
+
+### Events
+Read the [wiki](http://github.com/AjayMT/nodenet/wiki) for information on the events emitted by a `Node` object.
 
 ## Installation
 ```sh
@@ -30,7 +34,7 @@ $ ./test
 ```
 
 ## TODO
-- lots of docs
+- better docs
 - better tests
 - python 3 support, maybe use [asyncio](https://docs.python.org/dev/library/asyncio.html) instead of pyuv
 
