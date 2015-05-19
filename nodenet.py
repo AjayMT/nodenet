@@ -4,25 +4,9 @@ import signal
 import pyuv as uv
 from emitter import Emitter
 
-PROTOCOL_VERSION = '0.0.1'
+PROTOCOL_VERSION = '0.1.0'
 ERRNO = { 'ERR_PROTOCOL_VERSION': (1, 'wrong protocol version') }
 loop = uv.Loop.default_loop()
-
-
-def _nest_cbs(times, fn, args, step, final):
-    if not times:
-        return
-
-    args = list(args)
-
-    def cb(*a):
-        step(*a)
-        _nest_cbs(times - 1, fn, args, step, final)
-
-    if times == 1:
-        cb = final
-
-    fn(*(args + [cb]))
 
 
 class Node(uv.UDP, Emitter):
@@ -40,6 +24,8 @@ class Node(uv.UDP, Emitter):
 
         self.on('disconnect', self._on_disconnect)
 
+        self._current = None
+        self._queue = []
         self._sigint_h = uv.Signal(self.loop)
         self._sigterm_h = uv.Signal(self.loop)
         self._sigint_h.start(self.close, signal.SIGINT)
@@ -53,6 +39,16 @@ class Node(uv.UDP, Emitter):
     def _on_disconnect(self, who):
         self.peers.remove(who)
 
+        if self._current is None:
+            return
+
+        msg, to, cb = self._current
+        if who in to:
+            to.remove(who)
+
+        if len(to) == 0:
+            self._next_event(self, None)
+
     def _on_data(self, handle, who, flags, data, err):
         if data is None:
             return
@@ -63,8 +59,21 @@ class Node(uv.UDP, Emitter):
         try:
             msg = json.loads(data)
             super(Node, self).emit(msg['name'], who, *msg['args'])
+            self.send(who, 'rcvd;', self._check_err)
 
         except:
+            if data == 'rcvd;' and self._current is not None:
+                msg, to, cb = self._current
+
+                to.remove(who)
+                if len(to) == 0:
+                    self._next_event(self, None)
+
+                else:
+                    self._current = (msg, to, cb)
+
+                return
+
             if 'connect;' in data:
                 version = data.split(';')[1]
 
@@ -92,6 +101,22 @@ class Node(uv.UDP, Emitter):
 
                 return
 
+    def _next_event(self, h, e):
+        msg, to, cb = self._current
+        cb(h, e)
+
+        if len(self._queue) > 0:
+            self._current = self._queue.pop(0)
+            self._emit_next()
+
+        else:
+            self._current = None
+
+    def _emit_next(self):
+        msg, to, callback = self._current
+
+        [self.send(who, msg, self._check_err) for who in to]
+
     def close(self, *args):
         """Close the node.
 
@@ -104,7 +129,6 @@ class Node(uv.UDP, Emitter):
                 return
 
             self._check_err(e)
-            super(Node, self).emit('close', args[-1])
             self.stop_recv()
             self._sigint_h.close()
             self._sigterm_h.close()
@@ -113,6 +137,7 @@ class Node(uv.UDP, Emitter):
         if not len(args):
             args = [None]
 
+        super(Node, self).emit('close', args[-1])
         self.emit('disconnect', cb=cb)
 
     def bind(self, *where):
@@ -166,12 +191,6 @@ class Node(uv.UDP, Emitter):
           error is handled by emitting an 'error' event if necessary. Defaults
           to None.
         """
-        i = []
-
-        def cb(i, err):
-            self._check_err(err)
-            i.append(None)
-
         if 'cb' not in kwargs:
             kwargs['cb'] = self._check_err
 
@@ -182,13 +201,15 @@ class Node(uv.UDP, Emitter):
                         for n in kwargs['to']]
         kwargs['to'] = [n for n in kwargs['to'] if n in self.peers]
 
+        if kwargs['to'] == []:
+            kwargs['cb'](self, None)
+            return
+
         msg = json.dumps({'name': event, 'args': args})
 
-        # TODO get rid of weird kwargs['to'][len(i)] hack
-        if len(kwargs['to']):
-            _nest_cbs(len(kwargs['to']), self.send,
-                      [kwargs['to'][len(i)], msg],
-                      lambda h, x: cb(i, x), kwargs['cb'])
+        if self._current is None:
+            self._current = (msg, kwargs['to'], kwargs['cb'])
+            self._emit_next()
 
         else:
-            kwargs['cb'](None, None)
+            self._queue.append((msg, kwargs['to'], kwargs['cb']))
