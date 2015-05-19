@@ -8,9 +8,9 @@ sys.path.append(
 )
 
 import nodenet
-from pyvows import expect
+from preggy import expect
 
-print '\ntesting events...'
+print('\ntesting events...')
 
 n1 = nodenet.Node()
 n2 = nodenet.Node()
@@ -26,12 +26,12 @@ def runtest(events, n1, n2):
         expect(events['connect']).to_equal([n2.sockname, n1.sockname])
         expect(events['close/disconnect']).to_equal([-2, n1.sockname])
         expect(n2.peers).Not.to_include(n1.sockname)
-        print '  passed:'
-        print '    ' + str(events)
-        print '    ' + str(n2.peers)
+        print('  passed:')
+        print('    ' + str(events))
+        print('    ' + str(n2.peers))
 
     except Exception as e:
-        print '  failed: ' + str(e)
+        print('  failed: ' + str(e))
         nodenet.loop.stop()
         sys.exit(1)
 

@@ -8,7 +8,7 @@ sys.path.append(
 )
 
 import nodenet
-from pyvows import expect
+from preggy import expect
 
 n1 = nodenet.Node()
 n2 = nodenet.Node()
@@ -23,13 +23,13 @@ def test(*args):
     sendcount = []
 
     def on_data(who, data):
-        print '  ' + str(who) + ': ' + data
+        print('  ' + str(who) + ': ' + data)
         expect(data).to_equal('test')
         expect(who).to_equal(n2.sockname)
 
         sendcount.append(data)
         if len(sendcount) > 1:
-            print 'test failed: on_data called too many times'
+            print('test failed: on_data called too many times')
             n1.close(None)
             n2.close(None)
             n3.close(None)
@@ -38,7 +38,7 @@ def test(*args):
     n2.on('data', on_data)
     n3.on('data', on_data)
 
-    print '\ntesting multicast...'
+    print('\ntesting multicast...')
     n1.emit('data', 'test', to=[n2])
 
 n3.on('connect', test)

@@ -63,23 +63,17 @@ class Node(uv.UDP, Emitter):
             super(Node, self).emit(msg['name'], who, *msg['args'])
 
         except:
-            if data.startswith('connect;'):
-                data = tuple(data.split(';')[1].split(':'))
-                data = (data[0], int(data[1]))
-                if data not in self.peers:
-                    host, port = self.sockname
-                    self.peers.append(data)
-                    self.send(data, 'connected;' + host + ':' + str(port),
-                              self._check_err)
-                    super(Node, self).emit('connect', data)
+            if data == 'connect;':
+                if who not in self.peers:
+                    self.peers.append(who)
+                    self.send(who, 'connected;', self._check_err)
+                    super(Node, self).emit('connect', who)
 
                 return
 
-            if data.startswith('connected;'):
-                data = tuple(data.split(';')[1].split(':'))
-                data = (data[0], int(data[1]))
-                self.peers.append(data)
-                super(Node, self).emit('connect', data)
+            if data == 'connected;':
+                self.peers.append(who)
+                super(Node, self).emit('connect', who)
 
                 return
 
@@ -139,8 +133,7 @@ class Node(uv.UDP, Emitter):
         if who in self.peers:
             return
 
-        host, port = self.sockname
-        self.send(who, 'connect;' + host + ':' + str(port), self._check_err)
+        self.send(who, 'connect;', self._check_err)
 
     def emit(self, event, *args, **kwargs):
         """Emit an event.

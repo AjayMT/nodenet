@@ -3,7 +3,7 @@ language: python
 python:
   - "2.7"
 install:
-  - pip install pyvows
+  - pip install preggy
   - pip install pyuv
   - pip install emitter
 script: bash ./test
