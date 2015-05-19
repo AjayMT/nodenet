@@ -4,6 +4,8 @@ import signal
 import pyuv as uv
 from emitter import Emitter
 
+PROTOCOL_VERSION = '0.0.1'
+ERRNO = { 'ERR_PROTOCOL_VERSION': (1, 'wrong protocol version') }
 loop = uv.Loop.default_loop()
 
 
@@ -63,11 +65,24 @@ class Node(uv.UDP, Emitter):
             super(Node, self).emit(msg['name'], who, *msg['args'])
 
         except:
-            if data == 'connect;':
+            if 'connect;' in data:
+                version = data.split(';')[1]
+
+                if not version == PROTOCOL_VERSION:
+                    self.send(who, 'speak;' + PROTOCOL_VERSION, self._check_err)
+
+                    return
+
                 if who not in self.peers:
                     self.peers.append(who)
                     self.send(who, 'connected;', self._check_err)
                     super(Node, self).emit('connect', who)
+
+                return
+
+            if 'speak;' in data:
+                errno, msg = ERRNO['ERR_PROTOCOL_VERSION']
+                super(Node, self).emit('error', errno, msg)
 
                 return
 
@@ -133,7 +148,7 @@ class Node(uv.UDP, Emitter):
         if who in self.peers:
             return
 
-        self.send(who, 'connect;', self._check_err)
+        self.send(who, 'connect;' + PROTOCOL_VERSION, self._check_err)
 
     def emit(self, event, *args, **kwargs):
         """Emit an event.
