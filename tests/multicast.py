@@ -25,7 +25,7 @@ def test(*args):
     def on_data(who, data):
         print('  ' + str(who) + ': ' + data)
         expect(data).to_equal('test')
-        expect(who).to_equal(n2.sockname)
+        expect(who).to_equal(n1.sockname)
 
         sendcount.append(data)
         if len(sendcount) > 1:

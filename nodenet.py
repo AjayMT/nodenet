@@ -4,8 +4,8 @@ import signal
 import pyuv as uv
 from emitter import Emitter
 
-PROTOCOL_VERSION = '0.1.0'
-ERRNO = { 'ERR_PROTOCOL_VERSION': (1, 'wrong protocol version') }
+
+ERRNO = {'ERR_PROTOCOL_VERSION': (1, 'wrong protocol version')}
 loop = uv.Loop.default_loop()
 
 
@@ -19,6 +19,7 @@ class Node(uv.UDP, Emitter):
         uv.UDP.__init__(self, loop)
         Emitter.__init__(self)
 
+        self.protocol_version = '0.1.0'
         self.sockname = (None, None)
         self.peers = []
 
@@ -49,6 +50,47 @@ class Node(uv.UDP, Emitter):
         if len(to) == 0:
             self._next_event(self, None)
 
+    def _protocol(self, who, data):
+        if 'connect;' in data:
+            version = data.split(';')[1]
+
+            if not version == self.protocol_version:
+                self.send(who, 'speak;' + self.protocol_version,
+                          self._check_err)
+
+                return
+
+            if who not in self.peers:
+                self.peers.append(who)
+                self.send(who, 'connected;', self._check_err)
+                super(Node, self).emit('connect', who)
+
+            return
+
+        if 'speak;' in data:
+            errno, msg = ERRNO['ERR_PROTOCOL_VERSION']
+            super(Node, self).emit('error', errno, msg)
+
+            return
+
+        if data == 'connected;':
+            self.peers.append(who)
+            super(Node, self).emit('connect', who)
+
+            return
+
+        if data == 'rcvd;' and self._current is not None:
+            msg, to, cb = self._current
+
+            to.remove(who)
+            if len(to) == 0:
+                self._next_event(self, None)
+
+            else:
+                self._current = (msg, to, cb)
+
+            return
+
     def _on_data(self, handle, who, flags, data, err):
         if data is None:
             return
@@ -62,44 +104,7 @@ class Node(uv.UDP, Emitter):
             self.send(who, 'rcvd;', self._check_err)
 
         except:
-            if data == 'rcvd;' and self._current is not None:
-                msg, to, cb = self._current
-
-                to.remove(who)
-                if len(to) == 0:
-                    self._next_event(self, None)
-
-                else:
-                    self._current = (msg, to, cb)
-
-                return
-
-            if 'connect;' in data:
-                version = data.split(';')[1]
-
-                if not version == PROTOCOL_VERSION:
-                    self.send(who, 'speak;' + PROTOCOL_VERSION, self._check_err)
-
-                    return
-
-                if who not in self.peers:
-                    self.peers.append(who)
-                    self.send(who, 'connected;', self._check_err)
-                    super(Node, self).emit('connect', who)
-
-                return
-
-            if 'speak;' in data:
-                errno, msg = ERRNO['ERR_PROTOCOL_VERSION']
-                super(Node, self).emit('error', errno, msg)
-
-                return
-
-            if data == 'connected;':
-                self.peers.append(who)
-                super(Node, self).emit('connect', who)
-
-                return
+            self._protocol(who, data)
 
     def _next_event(self, h, e):
         msg, to, cb = self._current
@@ -173,7 +178,7 @@ class Node(uv.UDP, Emitter):
         if who in self.peers:
             return
 
-        self.send(who, 'connect;' + PROTOCOL_VERSION, self._check_err)
+        self.send(who, 'connect;' + self.protocol_version, self._check_err)
 
     def emit(self, event, *args, **kwargs):
         """Emit an event.
