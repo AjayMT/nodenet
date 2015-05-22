@@ -3,6 +3,7 @@ import json
 import signal
 import pyuv as uv
 from emitter import Emitter
+from uuid import uuid4
 
 
 ERRNO = {'ERR_PROTOCOL_VERSION': (1, 'wrong protocol version')}
@@ -21,12 +22,10 @@ class Node(uv.UDP, Emitter):
 
         self.protocol_version = '0.1.0'
         self.sockname = (None, None)
-        self.peers = []
 
         self.on('disconnect', self._on_disconnect)
 
-        self._current = None
-        self._queue = []
+        self._peers = {}
         self._sigint_h = uv.Signal(self.loop)
         self._sigterm_h = uv.Signal(self.loop)
         self._sigint_h.start(self.close, signal.SIGINT)
@@ -38,17 +37,7 @@ class Node(uv.UDP, Emitter):
             super(Node, self).emit('error', err, uv.errno.strerror(err))
 
     def _on_disconnect(self, who):
-        self.peers.remove(who)
-
-        if self._current is None:
-            return
-
-        msg, to, cb = self._current
-        if who in to:
-            to.remove(who)
-
-        if len(to) == 0:
-            self._next_event(self, None)
+        del self._peers[who]
 
     def _protocol(self, who, data):
         if 'connect;' in data:
@@ -60,8 +49,8 @@ class Node(uv.UDP, Emitter):
 
                 return
 
-            if who not in self.peers:
-                self.peers.append(who)
+            if who not in self._peers:
+                self._peers[who] = []
                 self.send(who, 'connected;', self._check_err)
                 super(Node, self).emit('connect', who)
 
@@ -74,22 +63,24 @@ class Node(uv.UDP, Emitter):
             return
 
         if data == 'connected;':
-            self.peers.append(who)
+            self._peers[who] = []
             super(Node, self).emit('connect', who)
 
             return
 
-        if data == 'rcvd;' and self._current is not None:
-            msg, to, cb = self._current
+        if data == 'rcvd;' and who in self._peers:
+            msg = self._peers[who][0]
 
-            to.remove(who)
-            if len(to) == 0:
-                self._next_event(self, None)
+            del self._peers[who][0]
 
-            else:
-                self._current = (msg, to, cb)
+            pending = [queue for peer, queue in self._peers.items()
+                       if msg in queue]
 
-            return
+            if not pending:
+                msg[2](self, None)
+
+            if self._peers[who]:
+                self.send(who, self._peers[who][0][0], self._check_err)
 
     def _on_data(self, handle, who, flags, data, err):
         if data is None:
@@ -106,21 +97,9 @@ class Node(uv.UDP, Emitter):
         except:
             self._protocol(who, data)
 
-    def _next_event(self, h, e):
-        msg, to, cb = self._current
-        cb(h, e)
-
-        if len(self._queue) > 0:
-            self._current = self._queue.pop(0)
-            self._emit_next()
-
-        else:
-            self._current = None
-
-    def _emit_next(self):
-        msg, to, callback = self._current
-
-        [self.send(who, msg, self._check_err) for who in to]
+    @property
+    def peers(self):
+        return self._peers.keys()
 
     def close(self, *args):
         """Close the node.
@@ -175,7 +154,7 @@ class Node(uv.UDP, Emitter):
         if type(who[0]) is Node:
             who = who[0].sockname
 
-        if who in self.peers:
+        if who in self._peers:
             return
 
         self.send(who, 'connect;' + self.protocol_version, self._check_err)
@@ -200,21 +179,21 @@ class Node(uv.UDP, Emitter):
             kwargs['cb'] = self._check_err
 
         if 'to' not in kwargs:
-            kwargs['to'] = self.peers
+            kwargs['to'] = self._peers
 
         kwargs['to'] = [n.sockname if type(n) is Node else n
                         for n in kwargs['to']]
-        kwargs['to'] = [n for n in kwargs['to'] if n in self.peers]
+        kwargs['to'] = [n for n in kwargs['to'] if n in self._peers]
 
         if kwargs['to'] == []:
             kwargs['cb'](self, None)
             return
 
         msg = json.dumps({'name': event, 'args': args})
+        uid = str(uuid4())
 
-        if self._current is None:
-            self._current = (msg, kwargs['to'], kwargs['cb'])
-            self._emit_next()
+        for peer in kwargs['to']:
+            self._peers[peer].append((msg, uid, kwargs['cb']))
 
-        else:
-            self._queue.append((msg, kwargs['to'], kwargs['cb']))
+            if len(self._peers[peer]) == 1:
+                self.send(peer, msg, self._check_err)
