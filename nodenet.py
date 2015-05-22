@@ -10,6 +10,22 @@ ERRNO = {'ERR_PROTOCOL_VERSION': (1, 'wrong protocol version')}
 loop = uv.Loop.default_loop()
 
 
+def _nest_cbs(times, fn, args, step, final):
+    if not times:
+        return
+
+    args = list(args)
+
+    def cb(*a):
+        step(*a)
+        _nest_cbs(times - 1, fn, args, step, final)
+
+    if times == 1:
+        cb = final
+
+    fn(*(args + [cb]))
+
+
 class Node(uv.UDP, Emitter):
     def __init__(self, loop=loop):
         """A nodenet node.
@@ -20,10 +36,8 @@ class Node(uv.UDP, Emitter):
         uv.UDP.__init__(self, loop)
         Emitter.__init__(self)
 
-        self.protocol_version = '0.1.0'
+        self.protocol_version = '0.2.0'
         self.sockname = (None, None)
-
-        self.on('disconnect', self._on_disconnect)
 
         self._peers = {}
         self._sigint_h = uv.Signal(self.loop)
@@ -36,11 +50,8 @@ class Node(uv.UDP, Emitter):
         if err:
             super(Node, self).emit('error', err, uv.errno.strerror(err))
 
-    def _on_disconnect(self, who):
-        del self._peers[who]
-
     def _protocol(self, who, data):
-        if 'connect;' in data:
+        if data.startswith('connect;'):
             version = data.split(';')[1]
 
             if not version == self.protocol_version:
@@ -56,7 +67,7 @@ class Node(uv.UDP, Emitter):
 
             return
 
-        if 'speak;' in data:
+        if data.startswith('speak;'):
             errno, msg = ERRNO['ERR_PROTOCOL_VERSION']
             super(Node, self).emit('error', errno, msg)
 
@@ -65,6 +76,12 @@ class Node(uv.UDP, Emitter):
         if data == 'connected;':
             self._peers[who] = []
             super(Node, self).emit('connect', who)
+
+            return
+
+        if data == 'disconnect;':
+            del self._peers[who]
+            super(Node, self).emit('disconnect', who)
 
             return
 
@@ -108,7 +125,14 @@ class Node(uv.UDP, Emitter):
         signum -- an optional signal number that is passed to listeners for
           the 'close' event
         """
+        i = []
+
+        def step(i, err):
+            self._check_err(err)
+            i.append(None)
+
         def cb(h, e):
+            self._check_err(e)
             if self.closed:
                 return
 
@@ -122,7 +146,17 @@ class Node(uv.UDP, Emitter):
             args = [None]
 
         super(Node, self).emit('close', args[-1])
-        self.emit('disconnect', cb=cb)
+
+        if self.peers:
+            # TODO: get rid of len(i) hack
+            _nest_cbs(len(self.peers), self.send,
+                      [self.peers[len(i)], 'disconnect;'],
+                      lambda h, e: step(i, e), cb)
+
+        else:
+            cb(self, None)
+
+            return
 
     def bind(self, *where):
         """Bind to a port.
