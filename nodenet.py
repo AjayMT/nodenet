@@ -38,6 +38,7 @@ class Node(uv.UDP, Emitter):
 
         self.protocol_version = '0.2.0'
         self.sockname = (None, None)
+        self.queue_messages = True
 
         self._peers = {}
         self._sigint_h = uv.Signal(self.loop)
@@ -85,6 +86,9 @@ class Node(uv.UDP, Emitter):
 
             return
 
+        if not self.queue_messages:
+            return
+
         if data == 'rcvd;' and who in self._peers:
             msg = self._peers[who][0]
 
@@ -105,7 +109,7 @@ class Node(uv.UDP, Emitter):
 
         self._check_err(err)
 
-        data = str(data).encode('utf-8')
+        data = str(data)
         try:
             msg = json.loads(data)
             super(Node, self).emit(msg['name'], who, *msg['args'])
@@ -209,6 +213,12 @@ class Node(uv.UDP, Emitter):
           error is handled by emitting an 'error' event if necessary. Defaults
           to None.
         """
+        i = []
+
+        def step(h, e):
+            self._check_err(e)
+            i.append(None)
+
         if 'cb' not in kwargs:
             kwargs['cb'] = self._check_err
 
@@ -217,7 +227,7 @@ class Node(uv.UDP, Emitter):
 
         kwargs['to'] = [n.sockname if type(n) is Node else n
                         for n in kwargs['to']]
-        kwargs['to'] = [n for n in kwargs['to'] if n in self._peers]
+        kwargs['to'] = [n for n in kwargs['to'] if n in self.peers]
 
         if kwargs['to'] == []:
             kwargs['cb'](self, None)
@@ -225,6 +235,14 @@ class Node(uv.UDP, Emitter):
 
         msg = json.dumps({'name': event, 'args': args})
         uid = str(uuid4())
+
+        if not self.queue_messages:
+            # TODO: get rid of len(i) hack
+            _nest_cbs(len(kwargs['to']), self.send,
+                      [kwargs['to'][len(i)], msg],
+                      lambda h, e: step(i, e), kwargs['cb'])
+
+            return
 
         for peer in kwargs['to']:
             self._peers[peer].append((msg, uid, kwargs['cb']))
