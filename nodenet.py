@@ -122,6 +122,15 @@ class Node(uv.UDP, Emitter):
     def peers(self):
         return self._peers.keys()
 
+    def flush(self, peer):
+        """Empty the message queue for a single peer.
+
+        Arguments:
+        peer -- the peer node whose message queue to empty
+        """
+        peer = peer.sockname if type(peer) is Node else peer
+        self._queue[who] = []
+
     def close(self, *args):
         """Close the node.
 
