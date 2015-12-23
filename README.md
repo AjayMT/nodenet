@@ -9,7 +9,7 @@ nodenet is an asynchronous, event-driven, node-based UDP networking library for 
 ## 'node-based'?
 (No, I don't mean [node.js](http://nodejs.org).)
 
-nodenet is centered around **nodes** rather than clients and servers. Each node is bound to a port and can connect to an arbitrary number of other nodes, and all of them can exchange messages in the form of 'events'. All that a node *actually* is is an extension of [pyuv's UDP handler](http://pyuv.readthedocs.org/en/latest/udp.html).
+nodenet is centered around **nodes** rather than clients and servers. Each node is bound to a port and can connect to any number of other nodes, and all of them can exchange messages in the form of 'events'. All that a node *actually* is is an extension of [pyuv's UDP handler](http://pyuv.readthedocs.org/en/latest/udp.html).
 
 ## Docs
 ### API
