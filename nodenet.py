@@ -31,7 +31,7 @@ class Node(uv.UDP, Emitter):
         """A nodenet node.
 
         Arguments:
-        loop -- a pyuv event loop to run on
+        loop -- a pyuv event loop
         """
         uv.UDP.__init__(self, loop)
         Emitter.__init__(self)
@@ -189,14 +189,12 @@ class Node(uv.UDP, Emitter):
         """Connect to a node.
 
         Arguments:
-        node -- another instance of `Node` to connect to. Mutually exclusive of
-          all other arguments.
-        ip -- IP address of node. Mutually exclusive of `node`.
-        port -- port number of node. Mutually exclusive of `node`.
-        flowinfo -- optional flow info, only for IPv6. Defaults to 0. Mutually
-          exclusive of `node`.
-        scope_id -- optional scope ID, only for IPv6. Defaults to 0. Mutually
-          exclusive of `node`.
+        node -- another instance of `Node` to connect to. If this is supplied,
+          other arguments are ignored.
+        ip -- IP address of node.
+        port -- port number of node.
+        flowinfo -- optional flow info, only for IPv6. Defaults to 0.
+        scope_id -- optional scope ID, only for IPv6. Defaults to 0.
         """
         if type(who[0]) is Node:
             who = who[0].sockname
@@ -212,11 +210,11 @@ class Node(uv.UDP, Emitter):
         Arguments:
         event -- event name
         *args -- arguments to pass to event listeners
-        to=None -- optional keyword argument, a list of specific nodes to
-          emit the event to. Each element in the list is a tuple like the one
-          passed to Node#connect, or an instance of Node. If this is None, the
-          event is broadcast to all connected nodes. Defaults to None.
-        cb=None -- optional keyword argument, a callback to call after the
+        to=None -- optional keyword argument. A list of specific nodes to
+          emit the event to. Each element in the list is a (host, port) tuple,
+          or an instance of Node. If this is None, the event is broadcast
+          to all connected nodes. Defaults to None.
+        cb=None -- optional keyword argument. A callback to call after the
           event has been emitted. Called with two arguments: the Node instance
           that emitted the event, and an error object. If this is None, the
           error is handled by emitting an 'error' event if necessary. Defaults
